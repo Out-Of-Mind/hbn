@@ -28,20 +28,12 @@ type HBN struct {
 		totalBytesRead uint64
 }
 
-type ErrMethodDoesNotAllowed struct{
-		method string
-}
-
-func (emdna *ErrMethodDoesNotAllowed) Error() string {
-		return fmt.Sprintf("method %s does not allowed to use", emdna.method)
-}
-
 // making new instance of HBN
 func New(url string, method string, duration int, workers int, path_to_useragents string, path_to_headers string) (*HBN, error) {
 		// read useragents
 		f, err := os.Open(path_to_useragents)
 		if err != nil {
-				fmt.Println("useragents wasn't found on this path: "+path_to_useragents)
+				fmt.Println(ErrUseragentsWasNotFound(path_to_useragents))
 				os.Exit(1)
 		}
 		scanner := bufio.NewScanner(f)
@@ -50,7 +42,7 @@ func New(url string, method string, duration int, workers int, path_to_useragent
 				useragents = append(useragents, scanner.Text())
 		}
 		if err := scanner.Err(); err != nil {
-				fmt.Println("error while reading useragents, exiting...")
+				fmt.Println(ErrReadFile("useragents"))
 				os.Exit(1)
 		}
 		f.Close()
@@ -75,9 +67,9 @@ func New(url string, method string, duration int, workers int, path_to_useragent
 }
 
 func (d *HBN) Run() {
-		fmt.Printf("Running %ds test to %s\n", d.duration, d.url)
 		bar := pb.StartNew(d.duration)
 		d.start()
+		fmt.Printf("Running %ds test for %s", d.duration, d.url)
 		go func() {
 				for i := 0; i < d.duration; i++ {
 						bar.Increment()
@@ -107,9 +99,14 @@ func (d *HBN) start() {
 								case <- d.s:
 										return
 								default:
-										err := d.attack(useragent)
+										err, p := d.attack(useragent)
 										if err != nil {
-												d.errors += 1
+												if p {
+														fmt.Println(err)
+														os.Exit(1)
+												} else {
+														d.errors += 1
+												}
 										} else {
 												d.succeses += 1
 										}
@@ -127,23 +124,23 @@ func (d *HBN) stop() {
 }
 
 // making http request
-func (d *HBN) attack(useragent string) error {
+func (d *HBN) attack(useragent string) (error, bool) {
 		if d.method == "GET" {
 				req, err := http.NewRequest(d.method, d.url, nil)
 				if err != nil {
-						return err
+						return err, false
 				} else {
 						req.Header.Set("User-Agent", useragent)
 						resp, err := d.client.Do(req)
 						if err != nil {
-								return err
+								return err, false
 						}
 						bytesRead, _ := ioutil.ReadAll(resp.Body)
 						atomic.AddUint64(&d.totalBytesRead, uint64(len(bytesRead)))
 						resp.Body.Close()
-						return nil
+						return nil, false
 				}
 		} else {
-				return &ErrMethodDoesNotAllowed{method:d.method}
+				return ErrMethodDoesNotAllowed(d.method), true
 		}
 }
