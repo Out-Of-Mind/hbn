@@ -1,4 +1,4 @@
-package dos
+package hbn
 
 import (
 		"os"
@@ -13,8 +13,8 @@ import (
 		"github.com/cheggaaa/pb/v3"
 )
 
-// structure of DOS
-type DOS struct {
+// structure of HBN
+type HBN struct {
 		url string
 		method string
 		duration int
@@ -36,8 +36,8 @@ func (emdna *ErrMethodDoesNotAllowed) Error() string {
 		return fmt.Sprintf("method %s does not allowed to use", emdna.method)
 }
 
-// making new instance of DOS
-func New(url string, method string, duration int, workers int, path_to_useragents string, headers map[string]string) (*DOS, error) {
+// making new instance of HBN
+func New(url string, method string, duration int, workers int, path_to_useragents string, path_to_headers string) (*HBN, error) {
 		// read useragents
 		f, err := os.Open(path_to_useragents)
 		if err != nil {
@@ -54,11 +54,12 @@ func New(url string, method string, duration int, workers int, path_to_useragent
 				os.Exit(1)
 		}
 		f.Close()
-		// makinh channel to manipulate work of worlers
+		// making channel to manipulate work of worlers
 		s := make(chan bool)
 		// declaring totalBytesRead
+		headers := make(map[string]string)
 		totalBytesRead := uint64(0)
-		return &DOS{
+		return &HBN{
 				url: url,
 				method: method,
 				duration: duration,
@@ -73,7 +74,7 @@ func New(url string, method string, duration int, workers int, path_to_useragent
 		}, nil
 }
 
-func (d *DOS) Run() {
+func (d *HBN) Run() {
 		fmt.Printf("Running %ds test to %s\n", d.duration, d.url)
 		bar := pb.StartNew(d.duration)
 		d.start()
@@ -92,7 +93,7 @@ func (d *DOS) Run() {
 }
 
 // start DOSing
-func (d *DOS) start() {
+func (d *HBN) start() {
 		go func(){d.s<-false}()
 		// starting workers
 		for i := 0; i < d.workers; i++ {
@@ -121,12 +122,12 @@ func (d *DOS) start() {
 }
 
 // stop DOSing
-func (d *DOS) stop() {
+func (d *HBN) stop() {
 		go func(){d.s<-true}()
 }
 
 // making http request
-func (d *DOS) attack(useragent string) error {
+func (d *HBN) attack(useragent string) error {
 		if d.method == "GET" {
 				req, err := http.NewRequest(d.method, d.url, nil)
 				if err != nil {
