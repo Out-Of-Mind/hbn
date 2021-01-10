@@ -1,0 +1,8 @@
+{
+  "headers": [
+    "Keep-Alive 1000",
+    "Referer https://www.google.com/search?=hi",
+    "X-Forwarded-For 1.1.1.1"
+  ],
+  "useragents": "./configs/useragents.txt"
+}
