@@ -118,68 +118,68 @@ func New(url string, method string, duration int, workers int, path_to_config st
 }
 
 // function that user start
-func (d *HBN) Run() {
+func (h *HBN) Run() {
 		// starting new bar
-		bar := pb.StartNew(d.duration)
+		bar := pb.StartNew(h.duration)
 		// start testing
-		d.start()
+		h.start()
 		// hello message
-		fmt.Printf("Running %ds test for %s\n", d.duration, d.url)
+		fmt.Printf("Running %ds test for %s\n", h.duration, h.url)
 		// bar asynchronous function
 		go func() {
-				for i := 0; i < d.duration; i++ {
+				for i := 0; i < h.duration; i++ {
 						bar.Increment()
 						time.Sleep(time.Second)
 				}
 		}()
 		// waiting for n seconds to end testong
-		time.Sleep(time.Duration(d.duration)*time.Second)
+		time.Sleep(time.Duration(h.duration)*time.Second)
 		// finish bar working
 		bar.Finish()
 		// stop testing
-		d.stop()
+		h.stop()
 		// --- statistics
-		fmt.Printf("total bytes read: %db\n", d.totalBytesRead)
-		fmt.Printf("total errors: %d, total succes requests: %d\n", d.errors, d.succeses)
+		fmt.Printf("total bytes read: %db\n", h.totalBytesRead)
+		fmt.Printf("total errors: %d, total succes requests: %d\n", h.errors, h.succeses)
 		// ------
 		// finding avarage latency
-		avrgLatency := findAvrgLatency(d.latency)
+		avrgLatency := findAvrgLatency(h.latency)
 		// converting to seconds
 		avrg := float32(avrgLatency)/float32(1e9)
 		fmt.Printf("Avarage latency is %fs\n", avrg)
 		// calculating min and max in list of latencies
-		min, max := MinMax(d.latency[1:])
+		min, max := MinMax(h.latency[1:])
 		// converting nanoseconds to seconds
-		d.minLatency = convert_nanoseconds_to_seconds(min)
+		h.minLatency = convert_nanoseconds_to_seconds(min)
 		// converting nanoseconds to seconds
-		d.maxLatency = convert_nanoseconds_to_seconds(max)
+		h.maxLatency = convert_nanoseconds_to_seconds(max)
 		// printing minimal and maximum latencies
-		fmt.Printf("minimal latancy is: %fs\nmaximum latency is: %fs\n", d.minLatency, d.maxLatency)
+		fmt.Printf("minimal latancy is: %fs\nmaximum latency is: %fs\n", h.minLatency, h.maxLatency)
 		// tnx function
 		fmt.Println("tnx for using my tool)))")
 }
 
 // start DOSing
-func (d *HBN) start() {
+func (h *HBN) start() {
 		// pull into stop channel flase statement
-		go func(){d.s<-false}()
+		go func(){h.s<-false}()
 		// starting workers
-		for i := 0; i < d.workers; i++ {
+		for i := 0; i < h.workers; i++ {
 				go func() {
 						// generating seed to provide the real random number
 						rand.Seed(time.Now().UnixNano())
 						// random useragent
-						useragent := d.useragents[rand.Intn(len(d.useragents))]
+						useragent := h.useragents[rand.Intn(len(h.useragents))]
 						// starting infinity loop testing
 						for {
 								select {
 								// if stop channel is true - end testing
-								case <- d.s:
+								case <- h.s:
 										return
 								default:
 										// if stop channel is true - testing
 										// start main sttack function
-										err, p := d.attack(useragent, d.headers)
+										err, p := h.attack(useragent, h.headers)
 										// checking for error
 										if err != nil {
 												// checking if error must to be printed
@@ -188,11 +188,11 @@ func (d *HBN) start() {
 														os.Exit(1)
 												} else {
 														// if error mustn't to be printed - jsut add count of erros
-														d.errors += 1
+														h.errors += 1
 												}
 										} else {
 												// if wasn't any error - add count of succes requests
-												d.succeses += 1
+												h.succeses += 1
 										}
 						}
 				}
@@ -203,16 +203,16 @@ func (d *HBN) start() {
 }
 
 // stop DOSing
-func (d *HBN) stop() {
+func (h *HBN) stop() {
 		// pull into stop channel true statement
-		go func(){d.s<-true}()
+		go func(){h.s<-true}()
 }
 
 // making http request
-func (d *HBN) attack(useragent string, headers map[string]string) (error, bool) {
+func (h *HBN) attack(useragent string, headers map[string]string) (error, bool) {
 		// if method is GET - making get request
-		if d.method == "GET" {
-				req, err := http.NewRequest(d.method, d.url, nil)
+		if h.method == "GET" {
+				req, err := http.NewRequest(h.method, h.url, nil)
 				if err != nil {
 						// error, mustn't to be printed
 						return err, false
@@ -226,10 +226,10 @@ func (d *HBN) attack(useragent string, headers map[string]string) (error, bool) 
 						// start time
 						start := time.Now().UnixNano()
 						// do request
-						resp, err := d.client.Do(req)
+						resp, err := h.client.Do(req)
 						// end time
 						end := time.Now().UnixNano()
-						d.latency = append(d.latency, (end-start))
+						h.latency = append(h.latency, (end-start))
 						//fmt.Println(end.Sub(start).Round(time.Millisecond))
 						if err != nil {
 								// error mustn't to be printed
@@ -238,7 +238,7 @@ func (d *HBN) attack(useragent string, headers map[string]string) (error, bool) 
 						// new bytes read to count total read bytes
 						bytesRead, _ := ioutil.ReadAll(resp.Body)
 						// adding total read bytes to counter
-						atomic.AddUint64(&d.totalBytesRead, uint64(len(bytesRead)))
+						atomic.AddUint64(&h.totalBytesRead, uint64(len(bytesRead)))
 						// close body
 						resp.Body.Close()
 						// no error mustn't to be printed
@@ -246,6 +246,6 @@ func (d *HBN) attack(useragent string, headers map[string]string) (error, bool) 
 				}
 		} else {
 				// if method isn't allowed - return error which must to be printed
-				return ErrMethodDoesNotAllowed(d.method), true
+				return ErrMethodDoesNotAllowed(h.method), true
 		}
 }

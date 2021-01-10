@@ -11,10 +11,15 @@ Fast, simple and powerfull!!!
 
 In UNIX based:
 ```shell
+$ git clone https://github.com/out-of-mind/hbn && cd hbn/
+```
+```shell
 $ make
 ```
 
 In windows:
+download zip file in git repo, than unzip it
+than change your current dir to hbn
 ```shell
 $ go build -v ./src/hbn.go
 ```
@@ -22,7 +27,7 @@ $ go build -v ./src/hbn.go
 ## Usage
 
 ```shell
-$ hbn -url <host to attack> -c <count of threads> -d <duration of testing>
+$ hbn -url <host to attack> -w <count of workers> -d <duration of testing> -c <path/to/your/config.json> -m <http method to use (only get method support, sorry)
 ```
 
 ## Help
