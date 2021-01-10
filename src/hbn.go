@@ -15,9 +15,9 @@ var (
 
 func init() {
 		flag.StringVar(&host, "url", "https://www.google.com/", "usage: -url https://google.com")
-		flag.IntVar(&workers, "w", 5, "usage: -c 50 to set 50 workers working")
+		flag.IntVar(&workers, "w", 5, "usage: -w 50 to set 50 workers working")
 		flag.IntVar(&duration, "d", 20, "usage: -d 20s to set duration to 20 seconds")
-		flag.StringVar(&path_to_config, "c", "./configs/config.json", "usage: -w path/to/your/config.json")
+		flag.StringVar(&path_to_config, "c", "./configs/config.json", "usage: -c path/to/your/config.json")
 		flag.StringVar(&method, "m", "GET", "usage: -m GET to set GET method")
 }
 
