@@ -21,20 +21,30 @@ type HBN struct {
 		method string
 		duration int
 		workers int
+
 		useragents []string
 		headers map[string]string
+
 		s chan bool
+
 		errors int
-		succeses int
+		successes int
+
 		client *http.Client
+
 		totalBytesRead uint64
 		minLatency float32
 		maxLatency float32
 		latency []int64
+		rps int64
+
+		use_headers bool
+		use_useragents bool
+		use_cookies bool
 }
 
 // making new instance of HBN
-func New(url string, method string, duration int, workers int, path_to_config string) (*HBN, error) {
+func New(url string, method string, duration int, workers int, path_to_config string, use_headers bool, use_useragents bool, use_cookies bool) (*HBN, error) {
 		// --- read config ---
 		// opening config file
 		c, err := os.Open(path_to_config)
@@ -56,40 +66,51 @@ func New(url string, method string, duration int, workers int, path_to_config st
 		c.Close()
 		// ------
 		// --- read useragents ---
-		// opening file where useragents
-		f, err := os.Open(config.Useragents)
-		if err != nil {
-				// if was error - handling it
-				fmt.Println(ErrUseragentsWasNotFound(config.Useragents))
-				os.Exit(1)
-		}
-		// making new scanner
-		scanner := bufio.NewScanner(f)
-		// making list of useragents
+		// making new list of useragents
 		useragents := make([]string, 1)
-		for scanner.Scan() {
-				// reading useragents line bt line
-				useragents = append(useragents, scanner.Text())
+		// checking if set flag to use useragents
+		if use_useragents {
+				// opening file where useragents
+				f, err := os.Open(config.Useragents)
+				if err != nil {
+						// if was error - handling it
+						fmt.Println(ErrUseragentsWasNotFound(config.Useragents))
+						os.Exit(1)
+				}
+				// making new scanner
+				scanner := bufio.NewScanner(f)
+				for scanner.Scan() {
+						// reading useragents line bt line
+						useragents = append(useragents, scanner.Text())
+				}
+				if err := scanner.Err(); err != nil {
+						// if was error - handling it
+						fmt.Println(ErrReadFile("useragents"))
+						os.Exit(1)
+				}
+				// close file
+				f.Close()
 		}
-		if err := scanner.Err(); err != nil {
-				// if was error - handling it
-				fmt.Println(ErrReadFile("useragents"))
-				os.Exit(1)
-		}
-		// close file
-		f.Close()
 		// ------
 		// --- declaring headers ---
-		// making new map - headera
+		// making new map - headers
 		headers := make(map[string]string)
-		// enumerating headers from config
-		for _, v := range config.Headers {
-				// split header
-				o := strings.Split(v, " ")
-				// setting header from splitted string
-				headers[o[0]] = o[1]
+		// checking if set flag to  use headers
+		if use_headers {
+				// enumerating headers from config
+				for _, v := range config.Headers {
+						// split header
+						o := strings.Split(v, " ")
+						// setting header from splitted string
+						headers[o[0]] = o[1]
+				}
 		}
 		// ------
+		// --- declaring cookies --- (in future)
+		// checking if set flag to use cookies
+		if use_cookies {
+
+		}
 		// --- making channel to manipulate work of worlers ---
 		s := make(chan bool)
 		// ------
@@ -109,11 +130,15 @@ func New(url string, method string, duration int, workers int, path_to_config st
 				client: &http.Client{},
 				s: s,
 				errors: 0,
-				succeses: 0,
+				successes: 0,
 				totalBytesRead: totalBytesRead,
 				minLatency: 0.1,
 				maxLatency: 0.1,
 				latency: latency,
+				rps: 0,
+				use_headers: use_headers,
+				use_useragents: use_useragents,
+				use_cookies: use_cookies,
 		}, nil
 }
 
@@ -140,7 +165,7 @@ func (h *HBN) Run() {
 		h.stop()
 		// --- statistics
 		fmt.Printf("total bytes read: %db\n", h.totalBytesRead)
-		fmt.Printf("total errors: %d, total succes requests: %d\n", h.errors, h.succeses)
+		fmt.Printf("total errors: %d, total success requests: %d\n", h.errors, h.successes)
 		// ------
 		// finding avarage latency
 		avrgLatency := findAvrgLatency(h.latency)
@@ -155,6 +180,9 @@ func (h *HBN) Run() {
 		h.maxLatency = convert_nanoseconds_to_seconds(max)
 		// printing minimal and maximum latencies
 		fmt.Printf("minimal latancy is: %fs\nmaximum latency is: %fs\n", h.minLatency, h.maxLatency)
+		// rps counting and printing
+		h.rps = int64((h.errors+h.successes)/h.duration)
+		fmt.Printf("rps is %d r/s\n", h.rps)
 		// tnx function
 		fmt.Println("tnx for using my tool)))")
 }
@@ -179,7 +207,7 @@ func (h *HBN) start() {
 								default:
 										// if stop channel is true - testing
 										// start main sttack function
-										err, p := h.attack(useragent, h.headers)
+										err, p := h.attack(useragent)
 										// checking for error
 										if err != nil {
 												// checking if error must to be printed
@@ -191,8 +219,8 @@ func (h *HBN) start() {
 														h.errors += 1
 												}
 										} else {
-												// if wasn't any error - add count of succes requests
-												h.succeses += 1
+												// if wasn't any error - add count of success requests
+												h.successes += 1
 										}
 						}
 				}
@@ -209,7 +237,7 @@ func (h *HBN) stop() {
 }
 
 // making http request
-func (h *HBN) attack(useragent string, headers map[string]string) (error, bool) {
+func (h *HBN) attack(useragent string) (error, bool) {
 		// if method is GET - making get request
 		if h.method == "GET" {
 				req, err := http.NewRequest(h.method, h.url, nil)
@@ -217,11 +245,15 @@ func (h *HBN) attack(useragent string, headers map[string]string) (error, bool) 
 						// error, mustn't to be printed
 						return err, false
 				} else {
-						// set useragent
-						req.Header.Set("User-Agent", useragent)
-						// setting headers from config file
-						for key, value := range headers {
-								req.Header.Set(key, value)
+						if h.use_useragents {
+								// set useragent
+								req.Header.Set("User-Agent", useragent)
+						}
+						if h.use_headers {
+								// setting headers from config file
+								for key, value := range h.headers {
+										req.Header.Set(key, value)
+								}
 						}
 						// start time
 						start := time.Now().UnixNano()

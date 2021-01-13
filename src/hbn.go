@@ -11,6 +11,7 @@ var (
 		duration int
 		path_to_config string
 		method string
+		use_cookies,  use_useragents, use_headers bool
 )
 
 func init() {
@@ -19,10 +20,13 @@ func init() {
 		flag.IntVar(&duration, "d", 20, "usage: -d 20s to set duration to 20 seconds")
 		flag.StringVar(&path_to_config, "c", "./configs/config.json", "usage: -c path/to/your/config.json")
 		flag.StringVar(&method, "m", "GET", "usage: -m GET to set GET method")
+		flag.BoolVar(&use_headers, "uh", false, "usage: -uh to read headers from config file")
+		flag.BoolVar(&use_useragents, "uu", false, "usage: -uu to read useragents from config file")
+		flag.BoolVar(&use_cookies, "uc", false, "usage: -uc to read cookies from config file")
 }
 
 func main() {
 		flag.Parse()
-		h, _ := hbn.New(host, method, duration, workers, path_to_config)
+		h, _ := hbn.New(host, method, duration, workers, path_to_config, use_headers, use_useragents, use_cookies)
 		h.Run()
 }
