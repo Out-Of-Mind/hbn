@@ -4,15 +4,12 @@ import (
 		"os"
 		"fmt"
 		"time"
-		"bufio"
-		"runtime"
-		"strings"
 		"net/http"
 		"io/ioutil"
 		"math/rand"
 		"sync/atomic"
-		"encoding/json"
 		"github.com/cheggaaa/pb/v3"
+		errs "github.com/out-of-mind/hbn/src/internal/errors"
 )
 
 // structure of HBN
@@ -24,6 +21,7 @@ type HBN struct {
 
 		useragents []string
 		headers map[string]string
+		cookies []string
 
 		s chan bool
 
@@ -41,91 +39,33 @@ type HBN struct {
 		use_headers bool
 		use_useragents bool
 		use_cookies bool
+
+		simple_test bool
 }
 
 // making new instance of HBN
-func New(url string, method string, duration int, workers int, path_to_config string, use_headers bool, use_useragents bool, use_cookies bool) (*HBN, error) {
+func New(url string, method string, duration int, workers int, path_to_config string, use_headers bool, use_useragents bool, use_cookies bool, simple_test bool) *HBN{
 		// --- read config ---
-		// opening config file
-		c, err := os.Open(path_to_config)
-		if err != nil {
-				// if was error - handling it
-				fmt.Println(ErrConfigWasNotFound(path_to_config))
-		}
-		decoder := json.NewDecoder(c)
-		// new instance of Config structure to decoding json
-		config := new(Config)
-		// decoding json
-		err = decoder.Decode(&config)
-		if err != nil {
-				// if was error - handling it
-				fmt.Println(ErrConfigRead())
-				os.Exit(1)
-		}
-		// close file
-		c.Close()
-		// ------
+		config := getConfig(path_to_config)
 		// --- read useragents ---
-		// making new list of useragents
-		useragents := make([]string, 1)
-		// checking if set flag to use useragents
-		if use_useragents {
-				// opening file where useragents
-				f, err := os.Open(config.Useragents)
-				if err != nil {
-						// if was error - handling it
-						fmt.Println(ErrUseragentsWasNotFound(config.Useragents))
-						os.Exit(1)
-				}
-				// making new scanner
-				scanner := bufio.NewScanner(f)
-				for scanner.Scan() {
-						// reading useragents line bt line
-						useragents = append(useragents, scanner.Text())
-				}
-				if err := scanner.Err(); err != nil {
-						// if was error - handling it
-						fmt.Println(ErrReadFile("useragents"))
-						os.Exit(1)
-				}
-				// close file
-				f.Close()
-		}
-		// ------
+		useragents := getUseragents(use_useragents, config.Useragents)
 		// --- declaring headers ---
-		// making new map - headers
-		headers := make(map[string]string)
-		// checking if set flag to  use headers
-		if use_headers {
-				// enumerating headers from config
-				for _, v := range config.Headers {
-						// split header
-						o := strings.Split(v, " ")
-						// setting header from splitted string
-						headers[o[0]] = o[1]
-				}
-		}
-		// ------
-		// --- declaring cookies --- (in future)
-		// checking if set flag to use cookies
-		if use_cookies {
-
-		}
+		headers := getHeaders(use_headers, config.Headers)
+		// --- declaring cookies ---
+		cookies := getCookies(use_cookies, config.Cookies)
 		// --- making channel to manipulate work of worlers ---
 		s := make(chan bool)
-		// ------
 		// --- declaring totalBytesRead ---
 		totalBytesRead := uint64(0)
-		// ------
 		// --- declaring list of latencies
 		latency := make([]int64, 1)
-		// ------
 		return &HBN{
 				url: url,
 				method: method,
 				duration: duration,
 				workers: workers,
 				headers: headers,
+				cookies: cookies,
 				useragents: useragents,
 				client: &http.Client{},
 				s: s,
@@ -139,7 +79,7 @@ func New(url string, method string, duration int, workers int, path_to_config st
 				use_headers: use_headers,
 				use_useragents: use_useragents,
 				use_cookies: use_cookies,
-		}, nil
+		}
 }
 
 // function that user start
@@ -171,7 +111,7 @@ func (h *HBN) Run() {
 		avrgLatency := findAvrgLatency(h.latency)
 		// converting to seconds
 		avrg := float32(avrgLatency)/float32(1e9)
-		fmt.Printf("Avarage latency is %fs\n", avrg)
+		fmt.Printf("avarage latency is %fs\n", avrg)
 		// calculating min and max in list of latencies
 		min, max := MinMax(h.latency[1:])
 		// converting nanoseconds to seconds
@@ -194,6 +134,7 @@ func (h *HBN) start() {
 		// starting workers
 		for i := 0; i < h.workers; i++ {
 				go func() {
+						//runtime.Gosched()
 						// generating seed to provide the real random number
 						rand.Seed(time.Now().UnixNano())
 						// random useragent
@@ -226,8 +167,6 @@ func (h *HBN) start() {
 				}
 				}()
 		}
-		// cleaning garbage
-		runtime.Gosched()
 }
 
 // stop DOSing
@@ -255,6 +194,11 @@ func (h *HBN) attack(useragent string) (error, bool) {
 										req.Header.Set(key, value)
 								}
 						}
+						if h.use_cookies {
+								for _, v := range h.cookies {
+										req.Header.Add("Set-Cookie", v)
+								}
+						}
 						// start time
 						start := time.Now().UnixNano()
 						// do request
@@ -278,6 +222,6 @@ func (h *HBN) attack(useragent string) (error, bool) {
 				}
 		} else {
 				// if method isn't allowed - return error which must to be printed
-				return ErrMethodDoesNotAllowed(h.method), true
+				return errs.ErrMethodDoesNotAllowed(h.method), true
 		}
 }

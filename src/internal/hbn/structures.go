@@ -4,4 +4,5 @@ package hbn
 type Config struct {
 	Useragents string   `json:"useragents"`
 	Headers    []string `json:"headers"`
+	Cookies    []string `json:"cookies"`
 }

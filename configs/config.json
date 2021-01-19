@@ -4,5 +4,9 @@
     "Referer https://www.google.com/search?=hi",
     "X-Forwarded-For 1.1.1.1"
   ],
-  "useragents": "./configs/useragents.txt"
+  "useragents": "./configs/useragents.txt",
+  "cookies": [
+    "some=thing; path=/; max-age=3600; samesite=lax; httpOnly; secure",
+    "hi=hi"
+  ]
 }

@@ -27,7 +27,7 @@ $ go build -v ./src/hbn.go
 ## Usage
 
 ```shell
-$ hbn -url <host to attack> -w <count of workers> -d <duration of testing> -c <path/to/your/config.json> -m <http method to use (only get method support, sorry)
+$ hbn -url <host to attack> -w <count of workers> -d <duration of testing> -c <path/to/your/config.json> -m <http method to use (only get method support, sorry)> -uu <use useragents> -uh <use headers> -uc <use cookies>
 ```
 
 ## Help

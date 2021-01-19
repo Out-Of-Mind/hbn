@@ -12,6 +12,7 @@ var (
 		path_to_config string
 		method string
 		use_cookies,  use_useragents, use_headers bool
+		simple_test bool
 )
 
 func init() {
@@ -23,10 +24,11 @@ func init() {
 		flag.BoolVar(&use_headers, "uh", false, "usage: -uh to read headers from config file")
 		flag.BoolVar(&use_useragents, "uu", false, "usage: -uu to read useragents from config file")
 		flag.BoolVar(&use_cookies, "uc", false, "usage: -uc to read cookies from config file")
+		flag.BoolVar(&simple_test, "s", false, "usage: -s to make simple request without any headers or cookies or useragents")
 }
 
 func main() {
 		flag.Parse()
-		h, _ := hbn.New(host, method, duration, workers, path_to_config, use_headers, use_useragents, use_cookies)
+		h := hbn.New(host, method, duration, workers, path_to_config, use_headers, use_useragents, use_cookies, simple_test)
 		h.Run()
 }

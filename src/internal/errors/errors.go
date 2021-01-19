@@ -1,4 +1,4 @@
-package hbn
+package errors
 
 import (
 		"fmt"
@@ -20,8 +20,8 @@ func ErrConfigWasNotFound(path string) error {
 		return err
 }
 
-func ErrReadFile(file_name string) error {
-		err := errors.New(fmt.Sprintf("error while reading %s", file_name))
+func ErrUseragentsFileRead() error {
+		err := errors.New(fmt.Sprintf("error while reading useragents"))
 		return err
 }
 
